@@ -1,0 +1,8 @@
+.venv/
+.idea/
+__pycache__/
+data/raw/
+data/processed/
+*.db
+.ipynb_checkpoints/
+src/private_settings.py
