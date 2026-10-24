@@ -31,13 +31,13 @@ COMPANIES = {
     "MTB": "Regional bank", "FITB": "Regional bank", "KEY": "Regional bank",
     "RF": "Regional bank", "HBAN": "Regional bank", "CFG": "Regional bank",
     # Custody and wealth
-    "BK": "Custody and wealth", "STT": "Custody and wealth",
+    "BNY": "Custody and wealth", "STT": "Custody and wealth",
     "NTRS": "Custody and wealth", "SCHW": "Custody and wealth",
     # Consumer credit and cards
     "COF": "Consumer credit", "AXP": "Consumer credit",
     "SYF": "Consumer credit", "ALLY": "Consumer credit",
     # Payments
-    "V": "Payments", "MA": "Payments", "PYPL": "Payments", "FI": "Payments",
+    "V": "Payments", "MA": "Payments", "PYPL": "Payments", "FISV": "Payments",
     "FIS": "Payments", "GPN": "Payments", "XYZ": "Payments",
     # Fintech
     "SOFI": "Fintech", "AFRM": "Fintech", "UPST": "Fintech",
