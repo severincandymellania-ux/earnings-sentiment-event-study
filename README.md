@@ -1,6 +1,6 @@
 # Does Earnings Tone Move the Stock? Financial Sentiment and Event Study on US Financials
 
-> **Status:** In progress. Phase 1 of 5: collecting earnings releases from SEC EDGAR.
+> **Status:** Phase 1 complete (dataset of 1,619 earnings releases). Next: Phase 2, sentiment scoring with FinBERT.
 
 ## Business Problem
 Investors and risk teams read hundreds of earnings releases each quarter. This project reads them
@@ -28,13 +28,17 @@ predicts how the stock moves over the following 1, 3 and 5 trading days, compare
    holding every stock?
 
 ## Data at a Glance
-| Item | Count |
+| Step | Count |
 |---|---|
-| Companies | 40 |
 | Item 2.02 filings found, 2015 to 2025 | 1,737 |
-| Filings with a press release attached | 1,725 (99.3%) |
 | Excluded: no press release attached | 12 |
-| Separating quarterly earnings releases from other Item 2.02 filings | In progress |
+| Press releases downloaded | 1,725 |
+| Excluded: no readable text (slides saved as images) | 7 |
+| Excluded: not an earnings release (presentations, legal news, order routing reports, updates) | 99 |
+| **Quarterly earnings releases in the final dataset** | **1,619** |
+| Companies with a release in all 44 quarters | 26 of 40 |
+| Labels decided by hand (documented in the code) | 4 |
+| Accuracy on a random sample of 40 releases, checked by reading | 40 of 40 |
 
 ## Data Sources
 | Source | Used for | Access |
@@ -51,55 +55,79 @@ predicts how the stock moves over the following 1, 3 and 5 trading days, compare
 | 1a. Explore EDGAR | Inspect one company (JPMorgan) by hand to understand the data | Done |
 | 1b. Collect filings | Every 8-K with Item 2.02 for 40 companies, 2015 to 2025, including older archive pages | Done |
 | 1c. Parse index pages | Reliable filing time and press release link for every filing | Done |
-| 1d. Download texts | Press release texts stored in a SQLite database | In progress |
-| 1e. Classify releases | Keep quarterly earnings releases, drop presentations and updates | Planned |
-| 2. Sentiment scoring | Clean text, split into 512-token chunks, score with FinBERT | Planned |
+| 1d. Download texts | Press release texts stored in a SQLite database | Done |
+| 1e. Classify releases | Earnings score plus "one release per company per quarter" rule, gap check, manual review | Done |
+| 2. Sentiment scoring | Clean text, split into 512-token chunks, score with FinBERT | Next |
 | 3. Validation | FinBERT vs. expert labels and vs. the word-list baseline | Planned |
 | 4. Event study | Market-model abnormal returns, regression of returns on tone | Planned |
 | 5. App | Streamlit app: pick a company, see each release, its tone and the price reaction | Planned |
 
-## Data Notes
-These findings came up while building the dataset, and each one shaped a design decision.
+## How Earnings Releases Were Identified
+Item 2.02 ("Results of Operations and Financial Condition") is used for more than quarterly
+earnings. Companies also file conference slides, investor day presentations, legal settlements,
+leadership changes and regulatory reports under it. PNC alone has 94 Item 2.02 filings in 11 years
+instead of 44. Keyword filters failed in both directions during exploration (see
+`sql/02_explore_headlines.sql`), so the final rule combines a text score with the structure of
+corporate reporting:
 
-- **Finding the earnings releases:** EDGAR has no "earnings" category. An earnings release is an
-  8-K report tagged Item 2.02 ("Results of Operations and Financial Condition"), with the press
-  release attached as an exhibit (EX-99.1 in 97% of filings, otherwise EX-99 or EX-99.01). File
-  names change every quarter, so the exhibit is located by its document type, not its name.
+1. **Earnings score.** Points for earnings language in the first 300 words ("Third Quarter",
+   "Q4-15", "1Q23", "Full Year", "Reports ... Results", "Net Income", "Net Loss", "Diluted EPS",
+   "To Our Shareholders"). Penalties for signs of another document in the first 60 words only
+   ("Conference" but not "conference call", "Investor Day", "Annual Meeting", "Order Routing",
+   "Settlement with", "Recast").
+2. **One release per company per quarter.** Within each company and calendar quarter, only the
+   highest-scoring filing is kept, if it scores at least 2.
+3. **Gap check.** Every rejected filing in a quarter without an earnings release is listed for
+   review. The final run has none.
+4. **Manual decisions.** Four filings the rule could not settle were read and decided by hand,
+   each with a written reason in `src/05_classify_releases.py`.
+
+Lessons from building the rule:
+- **Position matters more than the word.** "Settlement" or "Investor Day" in a headline signals
+  another document, but real releases use the same words in passing (for example "settlement of
+  certain state tax matters" or "payment settlement").
+- **"Quarter" is not proof of earnings.** Robinhood files quarterly SEC Rule 606 order routing
+  reports under Item 2.02, and they mention "3rd Quarter".
+- **Companies write results differently:** "Third Quarter 2022 Results and Key Metrics" (Citigroup),
+  "Q4-15" (Bank of America), "1Q23" (U.S. Bancorp), shareholder letters (Block, Affirm, Coinbase).
+
+## Data Notes
+- **Finding the press release:** the press release is attached as an exhibit (EX-99.1 in 97% of
+  filings, otherwise EX-99 or EX-99.01). File names change every quarter, so the exhibit is
+  located by its document type, not its name.
 - **Filtering is essential:** JPMorgan alone files about 26,000 documents a year on EDGAR, mostly
   paperwork for structured investment products. Only 4 are earnings releases.
-- **Item 2.02 is not only quarterly earnings:** companies also use it for conference presentations
-  and business updates. A company that reported every quarter would have 44 filings in 11 years;
-  PNC has 94, with extras in March, November and December around investor conferences, and
-  Robinhood has 29 since listing in 2021 instead of about 18. Neither the 8-K items, the dates nor
-  the exhibit descriptions separate them reliably (PNC and Robinhood leave descriptions empty), so
-  releases are classified from their text.
-- **Excluded filings:** 12 filings have no press release attached (the information sits in a short
-  paragraph in the 8-K form itself). They fall outside the companies' usual earnings dates and
-  appear to be preliminary figures or short updates, so they are excluded.
-- **Ticker changes:** BNY Mellon now trades as BNY and Fiserv as FISV. Companies are matched to
-  EDGAR through the SEC's official ticker file and checked by name.
 - **Filing times:** the `acceptanceDateTime` field in the EDGAR submissions API is unreliable.
   Compared with the "Accepted" time on each filing's index page, it is off by 8 hours (1,128
   filings), 10 hours (423), 4 hours (134) or 5 hours (52). Only the 4 and 5 hour gaps match the
   real New York to UTC offset, so filing times are taken from the index page.
-- **Filing before the open:** JPMorgan files its earnings 8-K before the market opens (between
-  about 6:30 and 8:40 am New York time in 2026), so the market reaction starts on the filing date.
+- **Ticker changes:** BNY Mellon now trades as BNY and Fiserv as FISV. Companies are matched to
+  EDGAR through the SEC's official ticker file and checked by name.
+- **Coverage below 44 quarters** has known causes: listing dates (SoFi, Robinhood, Coinbase, Affirm
+  and Upstart in 2020 and 2021, Block in late 2015, PayPal's separation from eBay in July 2015),
+  and a few quarters where a company filed no Item 2.02 8-K at all (Citigroup, Huntington, Morgan
+  Stanley, Schwab, KeyCorp, S&P Global, Northern Trust).
+- **Release length varies widely**, from about 1,100 words (Capital One) to 15,000 (Fifth Third),
+  because some exhibits include full financial tables. Phase 2 handles this before scoring.
 
 ## Project Structure
 ```text
 earnings-sentiment-event-study/
 ├── data/
 │   ├── raw/                               untouched downloads from EDGAR (not on GitHub)
-│   └── processed/                         cleaned tables and SQLite database (not on GitHub)
+│   └── processed/                         SQLite database and tables (not on GitHub)
 ├── src/
 │   ├── config.py                          shared settings and company list
 │   ├── private_settings_example.py        template for your SEC contact email
 │   ├── 01_explore_edgar.py                explores one company's EDGAR filings
 │   ├── 02_collect_earnings_filings.py     finds all Item 2.02 8-Ks, 2015 to 2025
 │   ├── 03_parse_filing_index.py           filing times and press release links
-│   └── 04_download_press_releases.py      downloads press release texts into SQLite
+│   ├── 04_download_press_releases.py      downloads press release texts into SQLite
+│   └── 05_classify_releases.py            labels real earnings releases
 ├── sql/
-│   └── 01_schema.sql                      database tables: filings, press_releases
+│   ├── 01_schema.sql                      database tables: filings, press_releases
+│   ├── 02_explore_headlines.sql           exploration queries behind the classification rule
+│   └── 03_validation_sample.sql           random sample used to check the labels
 ├── notebooks/                             exploration notebooks
 ├── figures/                               charts used in this README
 └── README.md
@@ -129,9 +157,15 @@ your own email in it. The SEC requires a contact email with every request
 python src/02_collect_earnings_filings.py    # about 1 to 3 minutes
 python src/03_parse_filing_index.py          # about 10 to 20 minutes
 python src/04_download_press_releases.py     # about 15 to 25 minutes
+python src/05_classify_releases.py           # a few seconds
 ```
 Every download is cached in `data/raw/`, so if a run stops, rerunning continues where it left off.
 `01_explore_edgar.py` is an exploration step and is not needed to reproduce the data.
+
+## Skills Demonstrated
+Python (requests, pandas, BeautifulSoup, regular expressions) · REST APIs and web data collection ·
+SQL and SQLite (schema design, joins, aggregation, data validation) · rule-based text
+classification · data quality checks · Git and GitHub
 
 ## Author
 **Candy Mellania Severin**, MSc Business Analytics and Data Science (UMCS Lublin; Erasmus+ at JKU Linz)
