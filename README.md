@@ -1,6 +1,6 @@
 # Does Earnings Tone Move the Stock? Financial Sentiment and Event Study on US Financials
 
-> **Status:** Ongoing. Phase 1 complete (1,619 earnings releases). Phase 2 complete (89,330 sentences scored with FinBERT, tone per release). Phase 3 in progress: FinBERT is 88% accurate on ordinary bank sentences but only 20% on cost and credit-loss sentences.
+> **Status:** Ongoing. Phase 1 complete (1,619 earnings releases). Phase 2 complete (89,330 sentences scored with FinBERT, tone per release). Phase 3 in progress: FinBERT scores 97% on its standard benchmark but only 54% on bank sentences from this dataset, and 20% on cost and credit-loss sentences.
 
 ## Business Problem
 Investors and risk teams read hundreds of earnings releases each quarter. This project reads them
@@ -29,26 +29,29 @@ predicts how the stock moves over the following 1, 3 and 5 trading days, compare
    holding every stock?
 
 ## Key Findings So Far
-- **FinBERT reads cost and credit-loss sentences backwards.** On 100 hand-labelled bank sentences
-  from this dataset, FinBERT is **88% accurate on ordinary sentences but only 20% on sentences
-  about costs and credit losses**, worse than guessing at random. Of 25 bad-news sentences in
-  that group, it called 22 positive. It learned "up = good, down = bad" from general financial
-  news, but for expenses, provisions, charge-offs and nonperforming loans the direction is
-  reversed. Example: *"Provision for credit losses increased... driven by higher energy-related
+- **A benchmark score badly overstates real-world accuracy.** FinBERT is **97.2% accurate on the
+  Financial PhraseBank**, its standard benchmark, but **54% on 100 hand-labelled bank sentences**
+  from this dataset.
+- **FinBERT reads cost and credit-loss sentences backwards.** On the bank sentences, it is **88%
+  accurate on ordinary sentences but only 20% on sentences about costs and credit losses**, worse
+  than guessing at random. Of 25 bad-news sentences in that group, it called 22 positive.
+  Example: *"Provision for credit losses increased... driven by higher energy-related
   charge-offs"* is scored **positive (0.96)**.
+- **The cause is a domain shift.** Cost and credit-loss language makes up **0.2% of the
+  PhraseBank** (4 of 2,264 sentences) but **23% of bank earnings releases**. FinBERT was trained
+  on PhraseBank data, rarely saw this language, and falls back on an "up = good, down = bad"
+  shortcut that is wrong for expenses, provisions, charge-offs and nonperforming loans.
 - **A human newcomer to bank finance makes the same mistake.** The author's blind first-pass
   labels agreed with FinBERT on 75% of sentences but with the final labels on only 51%, and
   reached only 32% on cost and credit-loss sentences.
-- **The affected sentences are common and concentrated in lenders.** 23% of all sentences
-  mention costs or credit-loss metrics: 28.9% for large banks and 26.9% for regional banks, but
-  only 11.9% for payment companies and 12.2% for exchanges.
-- **But the bias washes out at the release level.** FinBERT's errors point in both directions
-  (bad news called positive, good news called negative) and partly cancel when sentences are
-  averaged. A corrected tone score that excludes these sentences correlates at 0.96 with the
-  uncorrected one. A prediction made before the test (the correction should matter most for
-  lenders during the COVID reserve builds) was **rejected**: from early 2020 to the low point,
-  lenders' tone fell by 0.206 uncorrected and 0.197 corrected. Both scores are kept and tested
-  in the event study.
+- **The affected sentences are concentrated in lenders:** 28.9% of sentences for large banks and
+  26.9% for regional banks, but only 11.9% for payment companies and 12.2% for exchanges.
+- **But the bias washes out at the release level.** FinBERT's errors point in both directions and
+  partly cancel when sentences are averaged. A corrected tone score that excludes cost and
+  credit-loss sentences correlates at 0.96 with the uncorrected one. A prediction made before the
+  test (the correction should matter most for lenders during the COVID reserve builds) was
+  **rejected**: lenders' tone fell by 0.206 uncorrected and 0.197 corrected. Both scores are kept
+  and tested in the event study.
 - **Tone tracks financial history.** Without any information about dates, average release tone
   dips exactly in known stress periods: early 2016 (oil price crash, energy loan losses), the
   COVID lockdown quarter (lowest point of the 11 years, average tone 0.13 against 0.33 before
@@ -75,14 +78,15 @@ predicts how the stock moves over the following 1, 3 and 5 trading days, compare
 | Releases with a tone score | 1,619 |
 | Correlation between uncorrected and corrected release tone | 0.96 |
 | Bank sentences hand-labelled for model validation | 100 |
-| **FinBERT accuracy on hand-labelled bank sentences: ordinary / cost and credit-loss** | **88% / 20%** |
+| **FinBERT accuracy, Financial PhraseBank (2,264 sentences)** | **97.2%** |
+| **FinBERT accuracy, bank sentences: ordinary / cost and credit-loss** | **88% / 20%** |
 
 ## Data Sources
 | Source | Used for | Access |
 |---|---|---|
 | [SEC EDGAR APIs](https://www.sec.gov/edgar/sec-api-documentation) | Earnings releases (8-K, Item 2.02, Exhibit 99.1) and filing times | Free, requires a User-Agent with name and email |
 | [FinBERT (ProsusAI)](https://huggingface.co/ProsusAI/finbert) | Financial sentiment model | Free |
-| [Financial PhraseBank](https://huggingface.co/datasets/takala/financial_phrasebank) | Expert-labelled sentences to test FinBERT | Free |
+| [Financial PhraseBank](https://huggingface.co/datasets/takala/financial_phrasebank) | Expert-labelled financial news sentences (Malo et al., 2014) to benchmark FinBERT | Free, CC BY-NC-SA 3.0 |
 | [Loughran-McDonald Dictionary](https://sraf.nd.edu/loughranmcdonald-master-dictionary/) | Word-list baseline | Free for academic use |
 | [yfinance](https://github.com/ranaroussi/yfinance) | Daily stock and S&P 500 prices | Free, unofficial |
 
@@ -99,8 +103,8 @@ predicts how the stock moves over the following 1, 3 and 5 trading days, compare
 | 2c. Score sentences | FinBERT probabilities (positive, negative, neutral) for all 89,330 sentences | Done |
 | 2d. Release tone | Average tone per release, with and without cost and credit-loss sentences | Done |
 | 3a. Bank sentence test | FinBERT vs. 100 hand-labelled sentences from this dataset | Done |
-| 3b. Benchmark test | FinBERT vs. the Financial PhraseBank | Next |
-| 3c. Baseline | FinBERT vs. the Loughran-McDonald word list | Planned |
+| 3b. Benchmark test | FinBERT vs. the Financial PhraseBank | Done |
+| 3c. Baseline | FinBERT vs. the Loughran-McDonald word list | Next |
 | 4. Event study | Market-model abnormal returns, regression of returns on tone, controlling for reported earnings, robustness checks | Planned |
 | 5. App (optional) | Streamlit viewer: pick a company, see each release, its tone and the price reaction | Decided after Phase 4 |
 
@@ -179,9 +183,26 @@ are kept in `data/labels/bank_sentences_to_label.csv`.
 - **Limitation:** final labels were settled by one human and one AI annotator, not by a panel of
   bank analysts.
 
-### 3b and 3c (next)
-- **Financial PhraseBank:** the standard benchmark of expert-labelled financial news sentences.
-- **Loughran-McDonald word list:** the classic finance dictionary, as a non-AI baseline.
+### 3b. Financial PhraseBank benchmark
+**Design.** The 2,264 sentences of the Financial PhraseBank on which all expert annotators agreed
+(1,391 neutral, 570 positive, 303 negative), scored with the same FinBERT model.
+
+**Results.** FinBERT is **97.2% accurate** (298 of 303 negative, 1,345 of 1,391 neutral and 557 of
+570 positive sentences correct).
+
+**Interpretation.**
+- This is a **best case**: ProsusAI's FinBERT was trained on Financial PhraseBank data, so part of
+  this test is familiar ground.
+- The planned comparison on cost and credit-loss sentences could not be made: the PhraseBank
+  contains only **4** such sentences (0.2%), against 23% in bank earnings releases. That gap is
+  itself the explanation for the bank results: FinBERT's training data almost never covers how
+  banks write about credit losses.
+- On the PhraseBank, FinBERT uses "neutral" accurately; on bank release sentences it almost never
+  does (7 of 100). Bank releases are written differently from financial news.
+
+### 3c. Loughran-McDonald baseline (next)
+The classic finance word list, as a non-AI comparison: does FinBERT beat simple word counting on
+bank sentences, and does the word list suffer from the same direction problem?
 
 ## Data Notes
 - **Finding the press release:** the press release is attached as an exhibit (EX-99.1 in 97% of
@@ -225,7 +246,8 @@ earnings-sentiment-event-study/
 │   ├── 08_score_finbert.py                scores every sentence with FinBERT (resumable)
 │   ├── 09_make_label_sample.py            draws the blind sample for hand labelling
 │   ├── 10_release_tone.py                 tone per release (tone_all, tone_clean)
-│   └── 11_validate_bank_sentences.py      FinBERT accuracy on the hand-labelled sentences
+│   ├── 11_validate_bank_sentences.py      FinBERT accuracy on the hand-labelled sentences
+│   └── 12_phrasebank_benchmark.py         FinBERT accuracy on the Financial PhraseBank
 ├── sql/
 │   ├── 01_schema.sql                      database tables
 │   ├── 02_explore_headlines.sql           exploration queries behind the classification rule
@@ -268,6 +290,7 @@ python src/07_clean_texts.py                 # under a minute
 python src/08_score_finbert.py               # about 4 to 5 hours on a laptop CPU, resumable
 python src/10_release_tone.py                # a few seconds
 python src/11_validate_bank_sentences.py     # a few seconds
+python src/12_phrasebank_benchmark.py        # about 5 to 10 minutes
 ```
 Every download is cached in `data/raw/` and FinBERT scores are saved release by release, so if a
 run stops, rerunning continues where it left off. `01_explore_edgar.py`, `06_finbert_check.py` and
@@ -276,9 +299,9 @@ run stops, rerunning continues where it left off. `01_explore_edgar.py`, `06_fin
 ## Skills Demonstrated
 Python (requests, pandas, BeautifulSoup, regular expressions) · REST APIs and web data collection ·
 SQL and SQLite (schema design, joins, aggregation, subqueries, data validation) · NLP with Hugging
-Face Transformers and FinBERT · model evaluation (accuracy, confusion matrices), bias analysis and
-hypothesis testing · rule-based text classification · blind annotation and inter-annotator review ·
-data quality checks · Git and GitHub
+Face Transformers and FinBERT · model evaluation (benchmarks, accuracy, confusion matrices),
+domain-shift and bias analysis, hypothesis testing · rule-based text classification · blind
+annotation and inter-annotator review · data quality checks · Git and GitHub
 
 ## Author
 **Candy Mellania Severin**, MSc Business Analytics and Data Science (UMCS Lublin; Erasmus+ at JKU Linz)
