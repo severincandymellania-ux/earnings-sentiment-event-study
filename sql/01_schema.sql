@@ -32,3 +32,14 @@ CREATE TABLE IF NOT EXISTS sentences (
     n_words           INTEGER,
     PRIMARY KEY (accession_number, sentence_no)
 );
+
+-- FinBERT probabilities for each clean sentence (built by 08_score_finbert.py)
+CREATE TABLE IF NOT EXISTS sentence_scores (
+    accession_number  TEXT,
+    sentence_no       INTEGER,
+    p_positive        REAL,               -- probabilities add up to 1
+    p_negative        REAL,
+    p_neutral         REAL,
+    PRIMARY KEY (accession_number, sentence_no),
+    FOREIGN KEY (accession_number, sentence_no) REFERENCES sentences(accession_number, sentence_no)
+);

@@ -82,6 +82,7 @@ releases = pd.read_sql("""
 """, con)
 
 # 2. Clean every release and store its sentences (rebuilt from scratch on each run)
+con.execute("DELETE FROM sentence_scores")   # old scores no longer match rebuilt sentences
 con.execute("DELETE FROM sentences")
 rows = []
 for r in releases.itertuples():
