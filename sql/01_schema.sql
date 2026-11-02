@@ -23,3 +23,12 @@ CREATE TABLE IF NOT EXISTS press_releases (
     n_words           INTEGER,
     full_text         TEXT
 );
+
+-- One row per clean narrative sentence of an earnings release (built by 07_clean_texts.py)
+CREATE TABLE IF NOT EXISTS sentences (
+    accession_number  TEXT REFERENCES filings(accession_number),
+    sentence_no       INTEGER,            -- position in the release, starting at 0
+    text              TEXT,
+    n_words           INTEGER,
+    PRIMARY KEY (accession_number, sentence_no)
+);
